@@ -18,7 +18,8 @@ class PhysiologyTests(unittest.TestCase):
 
     def test_iob_is_monotonically_decreasing(self) -> None:
         values = [rapid_iob_fraction(age) for age in range(0, 301, 15)]
-        self.assertTrue(all(left >= right for left, right in zip(values, values[1:], strict=True)))
+        pairs = zip(values, values[1:], strict=False)
+        self.assertTrue(all(left >= right for left, right in pairs))
 
     def test_future_events_are_ignored(self) -> None:
         now = datetime(2026, 1, 1, 12, tzinfo=UTC)

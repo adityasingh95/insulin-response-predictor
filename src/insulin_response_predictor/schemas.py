@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 GLUCOSE_CONTEXTS = {
     "fasting",
     "pre_meal",

@@ -72,7 +72,13 @@ def validate_table(name: str, frame: pd.DataFrame) -> list[ValidationIssue]:
     duplicate_mask = frame.duplicated(subset=["subject_id", "timestamp"], keep=False)
     for index in frame.index[duplicate_mask]:
         issues.append(
-            ValidationIssue(name, "warning", "duplicate_timestamp", "Duplicate subject timestamp", int(index))
+            ValidationIssue(
+                name,
+                "warning",
+                "duplicate_timestamp",
+                "Duplicate subject timestamp",
+                int(index),
+            )
         )
 
     if name == "glucose":
@@ -80,7 +86,13 @@ def validate_table(name: str, frame: pd.DataFrame) -> list[ValidationIssue]:
         bad = values.isna() | (values < 20) | (values > 600)
         for index in frame.index[bad]:
             issues.append(
-                ValidationIssue(name, "error", "implausible_glucose", "Expected 20–600 mg/dL", int(index))
+                ValidationIssue(
+                    name,
+                    "error",
+                    "implausible_glucose",
+                    "Expected 20–600 mg/dL",
+                    int(index),
+                )
             )
         issues.extend(_enum_issues(name, frame, "context", GLUCOSE_CONTEXTS))
 
@@ -112,7 +124,13 @@ def validate_table(name: str, frame: pd.DataFrame) -> list[ValidationIssue]:
         bad = units.isna() | (units <= 0) | (units > 100)
         for index in frame.index[bad]:
             issues.append(
-                ValidationIssue(name, "error", "implausible_insulin", "Expected >0–100 units", int(index))
+                ValidationIssue(
+                    name,
+                    "error",
+                    "implausible_insulin",
+                    "Expected >0–100 units",
+                    int(index),
+                )
             )
         issues.extend(_enum_issues(name, frame, "insulin_type", INSULIN_TYPES))
         issues.extend(_enum_issues(name, frame, "dose_reason", DOSE_REASONS))
