@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from .io import coerce_boolean
 from .schemas import (
     DOSE_REASONS,
     EVENT_TYPES,
@@ -63,11 +64,32 @@ def validate_table(name: str, frame: pd.DataFrame) -> list[ValidationIssue]:
     if issues:
         return issues
 
-    parsed = pd.to_datetime(frame["timestamp"], errors="coerce", utc=True)
-    for index in frame.index[parsed.isna()]:
-        issues.append(
-            ValidationIssue(name, "error", "invalid_timestamp", "Unparseable timestamp", int(index))
-        )
+    for index, value in frame["timestamp"].items():
+        try:
+            timestamp = pd.Timestamp(value)
+        except (TypeError, ValueError):
+            issues.append(
+                ValidationIssue(
+                    name, "error", "invalid_timestamp", "Unparseable timestamp", int(index)
+                )
+            )
+            continue
+        if pd.isna(timestamp):
+            issues.append(
+                ValidationIssue(
+                    name, "error", "invalid_timestamp", "Unparseable timestamp", int(index)
+                )
+            )
+        elif timestamp.tzinfo is None:
+            issues.append(
+                ValidationIssue(
+                    name,
+                    "error",
+                    "naive_timestamp",
+                    "Timestamp must include a UTC offset, for example +05:30",
+                    int(index),
+                )
+            )
 
     duplicate_mask = frame.duplicated(subset=["subject_id", "timestamp"], keep=False)
     for index in frame.index[duplicate_mask]:
@@ -105,9 +127,19 @@ def validate_table(name: str, frame: pd.DataFrame) -> list[ValidationIssue]:
             )
         issues.extend(_enum_issues(name, frame, "meal_type", MEAL_TYPES))
         issues.extend(_enum_issues(name, frame, "gi_class", GI_CLASSES))
-        mismatched = frame["is_hypo_treatment"].astype(bool) != (
-            frame["meal_type"] == "hypo_treatment"
-        )
+        hypo_flags = frame["is_hypo_treatment"].map(coerce_boolean)
+        for index in frame.index[hypo_flags.isna()]:
+            issues.append(
+                ValidationIssue(
+                    name,
+                    "error",
+                    "invalid_boolean",
+                    "is_hypo_treatment must be true or false",
+                    int(index),
+                )
+            )
+        boolean_flags = hypo_flags.map(lambda value: value is True)
+        mismatched = boolean_flags != (frame["meal_type"] == "hypo_treatment")
         for index in frame.index[mismatched]:
             issues.append(
                 ValidationIssue(
