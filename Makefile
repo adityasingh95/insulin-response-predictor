@@ -1,4 +1,4 @@
-.PHONY: install test lint synthetic validate episodes assess templates forward
+.PHONY: install test lint synthetic validate episodes assess templates forward demo demo-docker
 
 install:
 	python -m pip install -e '.[dev]'
@@ -26,3 +26,9 @@ templates:
 
 forward:
 	irp evaluate-forward --input data/synthetic --output reports/generated/forward
+
+demo:
+	irp run-demo --output demo-output --days 90
+
+demo-docker:
+	docker compose run --rm demo

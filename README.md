@@ -20,6 +20,8 @@ creates leakage-resistant physiology features.
 - Google Sheets/CSV export templates and normalized column loading
 - Local Markdown/JSON quality reports and a three-panel event timeline
 - Chronological forward-model benchmarks with an explicit stop/go gate
+- Gated retrospective policy experiments and safety auditing
+- Complete synthetic PASS and STOP demonstrations
 
 Forward models and retrospective dose-policy experiments will be added only after the data
 foundation is verified. No personal data is required to run this milestone.
@@ -103,3 +105,38 @@ skill versus persistence, directional accuracy, and finite-difference dose sensi
 The gate requires skill above 0.20, negative median dose sensitivity, and correctly signed
 sensitivity on at least 80% of supported test rows. Passing only permits further retrospective
 research; it does not validate dose recommendations. See `docs/forward-model-guide.md`.
+
+## Complete end-to-end demonstration
+
+Run the entire setup before introducing real data:
+
+```bash
+irp run-demo --output demo-output --days 90
+```
+
+The `identifiable` fictional scenario must complete validation, forward modelling, gated
+policy experiments, and safety reporting. The `noisy` fictional scenario must stop at the
+forward gate and never run a policy. Both behaviors are tested in CI.
+
+The same demonstration is available through Docker:
+
+```bash
+docker compose run --rm demo
+```
+
+See `docs/end-to-end-demo.md` for the artifact tree and expected manifests.
+
+## Running a later real export
+
+First copy `config/subject.example.yaml` to the ignored `config/subject.yaml` and replace every
+example with clinician-approved subject values. Then run:
+
+```bash
+irp run-pipeline \
+  --input data/raw/latest \
+  --output reports/generated/latest \
+  --subject-config config/subject.yaml
+```
+
+The policy stage is unreachable unless a forward model passes the gate. Its outputs remain
+retrospective candidate-dose experiments, not instructions.

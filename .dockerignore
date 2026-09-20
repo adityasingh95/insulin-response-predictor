@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+data/raw
+data/interim
+data/processed
+reports/generated
+demo-output
+config/subject.yaml
