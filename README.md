@@ -57,6 +57,12 @@ Open `notebooks/end_to_end.ipynb` in Jupyter or VS Code and run the cells from t
 It defaults to a 90-day fictional PASS scenario, presents status as tables, and renders each
 report and chart inline. One settings cell switches to local Google Sheets/CSV exports.
 
+The notebook is written for a non-technical, techno-functional audience: every step, chart,
+and result is introduced with a plain-language explanation of what it shows, why the
+pipeline may stop, and what to do next, with deeper statistical detail folded into
+collapsible "Technical note" callouts. It ends with an automatically generated summary and
+a troubleshooting section.
+
 ## Personal-data boundary
 
 The repository may be public, but real health data must not be. The `.gitignore` excludes:
