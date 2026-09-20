@@ -1,0 +1,28 @@
+subject_id: synthetic-subject
+timezone: Asia/Kolkata
+glucose_unit: mg/dL
+
+# These example values are fictional. Replace them only with clinician-approved values.
+target:
+  low_mg_dl: 80
+  midpoint_mg_dl: 120
+  high_mg_dl: 180
+
+dosing:
+  increment_units: 0.5
+  usual_isf_mg_dl_per_unit: 40
+  usual_icr_g_per_unit:
+    breakfast: 8
+    lunch: 10
+    dinner: 9
+
+rapid_insulin:
+  product: example-rapid
+  duration_minutes: 300
+  decay_tau_minutes: 90
+
+basal_regimen:
+  product: example-basal
+  doses:
+    - time: "22:00"
+      units: 18

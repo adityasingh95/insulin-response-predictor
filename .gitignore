@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Personal health information and derived artifacts must never be committed.
+data/raw/**
+data/interim/**
+data/processed/**
+artifacts/**
+reports/generated/**
+config/subject.yaml
+*.sqlite
+*.db
+*.parquet
+*.pkl
+*.joblib
+
+# Keep safe, explicitly synthetic fixtures only.
+!data/synthetic/
+!data/synthetic/**
