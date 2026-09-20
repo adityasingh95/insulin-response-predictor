@@ -1,0 +1,19 @@
+episode:
+  pre_glucose_lookback_minutes: 90
+  meal_bolus_tolerance_minutes: 30
+  outcome_min_minutes: 120
+  outcome_target_minutes: 180
+  outcome_max_minutes: 240
+
+features:
+  rapid_iob_lookback_minutes: 360
+  cob_lookback_minutes: 360
+
+evaluation:
+  initial_train_fraction: 0.70
+  minimum_clean_episodes: 60
+  forward_skill_gate: 0.20
+
+policy:
+  enabled: false
+  research_only: true
