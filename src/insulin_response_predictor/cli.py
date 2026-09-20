@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from .episodes import build_meal_episodes
+from .evaluation import write_forward_evaluation
 from .io import load_csv_exports, write_blank_templates
 from .reporting import write_assessment
 from .synthetic import write_synthetic_dataset
@@ -53,6 +54,18 @@ def _assess(args: argparse.Namespace) -> int:
     return 1 if any(issue.severity == "error" for issue in issues) else 0
 
 
+def _evaluate_forward(args: argparse.Namespace) -> int:
+    tables = _load_tables(Path(args.input))
+    issues = validate_dataset(tables)
+    errors = [issue.__dict__ for issue in issues if issue.severity == "error"]
+    if errors:
+        print(json.dumps({"errors": errors}, indent=2))
+        return 1
+    result, _ = write_forward_evaluation(tables, args.output)
+    print(json.dumps({"output": args.output, "result": result}, indent=2, default=str))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="irp")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -80,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
     assess.add_argument("--input", required=True)
     assess.add_argument("--output", default="reports/generated")
     assess.set_defaults(func=_assess)
+
+    forward = subparsers.add_parser("evaluate-forward")
+    forward.add_argument("--input", required=True)
+    forward.add_argument("--output", default="reports/generated/forward")
+    forward.set_defaults(func=_evaluate_forward)
     return parser
 
 

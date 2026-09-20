@@ -19,6 +19,7 @@ creates leakage-resistant physiology features.
 - Leakage-resistant episode features
 - Google Sheets/CSV export templates and normalized column loading
 - Local Markdown/JSON quality reports and a three-panel event timeline
+- Chronological forward-model benchmarks with an explicit stop/go gate
 
 Forward models and retrospective dose-policy experiments will be added only after the data
 foundation is verified. No personal data is required to run this milestone.
@@ -38,6 +39,7 @@ irp generate-synthetic --output data/synthetic --days 21
 irp validate --input data/synthetic
 irp build-episodes --input data/synthetic --output data/interim/episodes.csv
 irp assess --input data/synthetic --output reports/generated/synthetic
+irp evaluate-forward --input data/synthetic --output reports/generated/forward
 ```
 
 Run tests:
@@ -91,3 +93,13 @@ Each non-hypo meal is classified as:
 - `unusable`: a required bolus or glucose observation is missing.
 
 Only clean episodes should enter the primary forward-model dataset.
+
+## Forward-model evaluation
+
+`irp evaluate-forward` compares persistence, linear extrapolation, Ridge, histogram gradient
+boosting, and Random Forest on the same chronological test period. It reports RMSE, MAE,
+skill versus persistence, directional accuracy, and finite-difference dose sensitivity.
+
+The gate requires skill above 0.20, negative median dose sensitivity, and correctly signed
+sensitivity on at least 80% of supported test rows. Passing only permits further retrospective
+research; it does not validate dose recommendations. See `docs/forward-model-guide.md`.
