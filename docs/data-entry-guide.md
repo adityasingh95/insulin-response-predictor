@@ -38,6 +38,12 @@ Required columns:
 Every hypo treatment must use both `meal_type=hypo_treatment` and
 `is_hypo_treatment=true`. Regular food must use `false`.
 
+Optional fields are `meal_reference_id`, `protein_g`, `fat_g`, `estimate_confidence`, and
+`notes`. To reuse meals, copy `templates/meal_references.csv` beside the exports and add one
+unique row per repeated meal. A matching food row inherits only blank details; explicit
+values in the food row always win. Keep the lookup local because descriptions can be
+sensitive.
+
 ## Insulin
 
 Required columns:
@@ -59,7 +65,9 @@ Use the optional context tab for `exercise`, `illness`, `stress`, `poor_sleep`, 
 1. Export each Google Sheets tab as CSV.
 2. Rename the files to `glucose.csv`, `food.csv`, `insulin.csv`, and `context.csv`.
 3. Place them in a local ignored directory such as `data/raw/latest/`.
-4. Run `irp assess --input data/raw/latest --output reports/generated/latest`.
-5. Review `data_quality.md`, `timeline.png`, and the episode breakdown before modelling.
+4. Open `notebooks/end_to_end.ipynb`, select `MODE = 'csv'`, and run all cells. The equivalent
+   CLI entry point is `irp run-pipeline`.
+5. Review data quality, exploratory analysis, forward evaluation, and—only after a gate
+   pass—the retrospective policy experiment.
 
 Do not commit exported files or generated reports. They may contain personal health data.

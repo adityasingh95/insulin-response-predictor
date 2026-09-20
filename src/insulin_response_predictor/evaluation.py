@@ -23,7 +23,7 @@ from .models import (
     linear_extrapolation_prediction,
     persistence_prediction,
 )
-from .splits import chronological_split
+from .splits import chronological_split, rolling_origin_splits
 
 
 def regression_metrics(
@@ -45,6 +45,92 @@ def regression_metrics(
         "skill_vs_persistence": float(skill),
         "directional_accuracy": directional_accuracy,
     }
+
+
+def bootstrap_metric_intervals(
+    actual: np.ndarray,
+    predicted: np.ndarray,
+    *,
+    current_glucose: np.ndarray,
+    persistence_rmse: float,
+    samples: int = 300,
+    random_state: int = 42,
+) -> dict[str, list[float]]:
+    """Return deterministic episode-level 95% bootstrap intervals."""
+    rng = np.random.default_rng(random_state)
+    collected: dict[str, list[float]] = {
+        "rmse_mg_dl": [],
+        "mae_mg_dl": [],
+        "skill_vs_persistence": [],
+        "directional_accuracy": [],
+    }
+    for _ in range(samples):
+        indices = rng.integers(0, len(actual), len(actual))
+        values = regression_metrics(
+            actual[indices],
+            predicted[indices],
+            current_glucose=current_glucose[indices],
+            persistence_rmse=persistence_rmse,
+        )
+        for name in collected:
+            collected[name].append(values[name])
+    return {
+        name: [float(np.quantile(values, 0.025)), float(np.quantile(values, 0.975))]
+        for name, values in collected.items()
+    }
+
+
+def _rolling_origin_evaluation(
+    features: pd.DataFrame, *, random_state: int
+) -> dict[str, object]:
+    initial = max(20, int(len(features) * 0.50))
+    test_rows = max(5, int(len(features) * 0.15))
+    splits = rolling_origin_splits(
+        features, initial_train_rows=initial, test_rows=test_rows
+    )
+    fold_rows: list[dict[str, object]] = []
+    for fold, (train, test) in enumerate(splits, start=1):
+        actual = test[TARGET_COLUMN].to_numpy(dtype=float)
+        current = test["pre_glucose_mg_dl"].to_numpy(dtype=float)
+        persistence = persistence_prediction(test)
+        baseline_rmse = math.sqrt(mean_squared_error(actual, persistence))
+        fold_rows.append(
+            {
+                "fold": fold,
+                "model": "persistence",
+                **regression_metrics(
+                    actual,
+                    persistence,
+                    current_glucose=current,
+                    persistence_rmse=baseline_rmse,
+                ),
+            }
+        )
+        for name, model in build_models(random_state=random_state + fold).items():
+            model.fit(train[MODEL_FEATURES], train[TARGET_COLUMN])
+            prediction = np.asarray(model.predict(test[MODEL_FEATURES]), dtype=float)
+            fold_rows.append(
+                {
+                    "fold": fold,
+                    "model": name,
+                    **regression_metrics(
+                        actual,
+                        prediction,
+                        current_glucose=current,
+                        persistence_rmse=baseline_rmse,
+                    ),
+                }
+            )
+    fold_frame = pd.DataFrame(fold_rows)
+    summary: dict[str, object] = {}
+    for name, group in fold_frame.groupby("model"):
+        summary[str(name)] = {
+            "folds": int(len(group)),
+            "mean_rmse_mg_dl": float(group["rmse_mg_dl"].mean()),
+            "std_rmse_mg_dl": float(group["rmse_mg_dl"].std(ddof=0)),
+            "mean_skill_vs_persistence": float(group["skill_vs_persistence"].mean()),
+        }
+    return {"fold_count": len(splits), "models": summary, "folds": fold_rows}
 
 
 def dose_sensitivity(
@@ -101,7 +187,11 @@ def evaluate_forward_models(
 ) -> tuple[dict[str, object], pd.DataFrame]:
     episodes = build_meal_episodes(tables["glucose"], tables["food"], tables["insulin"])
     features = build_episode_features(
-        episodes, tables["glucose"], tables["food"], tables["insulin"]
+        episodes,
+        tables["glucose"],
+        tables["food"],
+        tables["insulin"],
+        tables.get("context"),
     )
     train, test = chronological_split(features, train_fraction=train_fraction)
     actual = test[TARGET_COLUMN].to_numpy(dtype=float)
@@ -124,17 +214,32 @@ def evaluate_forward_models(
     predictions["linear_extrapolation"] = linear_extrapolation_prediction(test)
 
     metrics: dict[str, dict[str, float]] = {}
+    intervals: dict[str, dict[str, list[float]]] = {}
     metrics["persistence"] = regression_metrics(
         actual,
         predictions["persistence"].to_numpy(),
         current_glucose=current,
         persistence_rmse=persistence_rmse,
     )
+    intervals["persistence"] = bootstrap_metric_intervals(
+        actual,
+        predictions["persistence"].to_numpy(),
+        current_glucose=current,
+        persistence_rmse=persistence_rmse,
+        random_state=random_state,
+    )
     metrics["linear_extrapolation"] = regression_metrics(
         actual,
         predictions["linear_extrapolation"].to_numpy(),
         current_glucose=current,
         persistence_rmse=persistence_rmse,
+    )
+    intervals["linear_extrapolation"] = bootstrap_metric_intervals(
+        actual,
+        predictions["linear_extrapolation"].to_numpy(),
+        current_glucose=current,
+        persistence_rmse=persistence_rmse,
+        random_state=random_state + 1,
     )
 
     support_min = float(train["bolus_units"].min())
@@ -151,6 +256,13 @@ def evaluate_forward_models(
             prediction,
             current_glucose=current,
             persistence_rmse=persistence_rmse,
+        )
+        intervals[name] = bootstrap_metric_intervals(
+            actual,
+            prediction,
+            current_glucose=current,
+            persistence_rmse=persistence_rmse,
+            random_state=random_state + len(intervals),
         )
         sensitivities[name] = dose_sensitivity(
             model,
@@ -174,6 +286,10 @@ def evaluate_forward_models(
             "observed_bolus_support_units": [support_min, support_max],
         },
         "metrics": metrics,
+        "metric_95_percent_intervals": intervals,
+        "rolling_origin": _rolling_origin_evaluation(
+            features, random_state=random_state
+        ),
         "dose_sensitivity": sensitivities,
         "gate": {
             "criteria": {
@@ -195,10 +311,14 @@ def _render_markdown(result: dict[str, object]) -> str:
     metrics = result["metrics"]
     sensitivity = result["dose_sensitivity"]
     gate = result["gate"]
+    intervals = result["metric_95_percent_intervals"]
+    rolling = result["rolling_origin"]
     assert isinstance(dataset, dict)
     assert isinstance(metrics, dict)
     assert isinstance(sensitivity, dict)
     assert isinstance(gate, dict)
+    assert isinstance(intervals, dict)
+    assert isinstance(rolling, dict)
     lines = [
         "# Forward-model evaluation",
         "",
@@ -215,7 +335,7 @@ def _render_markdown(result: dict[str, object]) -> str:
         "",
         "## Results",
         "",
-        "| Model | RMSE | MAE | Skill | Direction | Median dose sensitivity | Gate |",
+        "| Model | RMSE (95% CI) | MAE | Skill | Direction | Median dose sensitivity | Gate |",
         "|---|---:|---:|---:|---:|---:|---|",
     ]
     gate_by_model = gate["by_model"]
@@ -224,12 +344,33 @@ def _render_markdown(result: dict[str, object]) -> str:
         model_sensitivity = sensitivity.get(name, {})
         median = model_sensitivity.get("median_mg_dl_per_unit")
         median_text = f"{median:.2f}" if isinstance(median, float) else "—"
+        rmse_interval = intervals[name]["rmse_mg_dl"]
         lines.append(
-            f"| {name} | {model_metrics['rmse_mg_dl']:.2f} | "
+            f"| {name} | {model_metrics['rmse_mg_dl']:.2f} "
+            f"({rmse_interval[0]:.2f}–{rmse_interval[1]:.2f}) | "
             f"{model_metrics['mae_mg_dl']:.2f} | "
             f"{model_metrics['skill_vs_persistence']:.3f} | "
             f"{model_metrics['directional_accuracy']:.1%} | {median_text} | "
             f"{'pass' if gate_by_model.get(name, False) else 'fail'} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Rolling-origin robustness",
+            "",
+            f"Expanding-window folds: **{rolling['fold_count']}**.",
+            "",
+            "| Model | Mean RMSE | RMSE SD | Mean skill |",
+            "|---|---:|---:|---:|",
+        ]
+    )
+    rolling_models = rolling["models"]
+    assert isinstance(rolling_models, dict)
+    for name, values in rolling_models.items():
+        lines.append(
+            f"| {name} | {values['mean_rmse_mg_dl']:.2f} | "
+            f"{values['std_rmse_mg_dl']:.2f} | "
+            f"{values['mean_skill_vs_persistence']:.3f} |"
         )
     lines.extend(
         [
@@ -281,6 +422,29 @@ def _plot_predictions(predictions: pd.DataFrame, destination: Path) -> None:
     plt.close(figure)
 
 
+def _plot_residual_diagnostics(
+    predictions: pd.DataFrame, best_model: str, destination: Path
+) -> None:
+    residual = predictions["outcome_glucose_mg_dl"] - predictions[best_model]
+    timestamps = pd.to_datetime(predictions["bolus_timestamp"], utc=True)
+    figure, axes = plt.subplots(1, 2, figsize=(10, 4))
+    axes[0].scatter(timestamps.dt.hour, residual, alpha=0.65)
+    axes[0].set_xlabel("Bolus hour")
+    axes[0].set_ylabel("Actual − predicted (mg/dL)")
+    axes[0].set_title("Residual by time of day")
+    axes[1].scatter(predictions["carbs_g"], residual, alpha=0.65)
+    axes[1].set_xlabel("Carbohydrate (g)")
+    axes[1].set_ylabel("Actual − predicted (mg/dL)")
+    axes[1].set_title("Residual by meal size")
+    for axis in axes:
+        axis.axhline(0, color="black", linewidth=1, linestyle="--")
+        axis.grid(alpha=0.2)
+    figure.suptitle(best_model.replace("_", " "))
+    figure.tight_layout()
+    figure.savefig(destination, dpi=150)
+    plt.close(figure)
+
+
 def write_forward_evaluation(
     tables: dict[str, pd.DataFrame], destination: str | Path
 ) -> tuple[dict[str, object], pd.DataFrame]:
@@ -295,4 +459,11 @@ def write_forward_evaluation(
     )
     predictions.to_csv(destination / "forward_predictions.csv", index=False)
     _plot_predictions(predictions, destination / "predicted_vs_actual.png")
+    gate = result["gate"]
+    assert isinstance(gate, dict)
+    _plot_residual_diagnostics(
+        predictions,
+        str(gate["best_model_by_rmse"]),
+        destination / "residual_diagnostics.png",
+    )
     return result, predictions

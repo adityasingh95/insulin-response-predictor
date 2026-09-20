@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from insulin_response_predictor.io import (
+    apply_meal_references,
     coerce_boolean,
     load_csv_exports,
     normalize_export,
@@ -49,6 +50,28 @@ class IoTests(unittest.TestCase):
             )
             tables = load_csv_exports(directory)
             self.assertEqual(float(tables["glucose"].iloc[0]["glucose_mg_dl"]), 120)
+
+    def test_meal_reference_fills_only_blank_details(self) -> None:
+        food = pd.DataFrame(
+            {
+                "meal_reference_id": ["usual_lunch"],
+                "description": [""],
+                "carbs_g": [pd.NA],
+                "gi_class": ["medium"],
+            }
+        )
+        references = pd.DataFrame(
+            {
+                "meal_reference_id": ["usual_lunch"],
+                "description": ["reference lunch"],
+                "carbs_g": [55],
+                "gi_class": ["low"],
+            }
+        )
+        result = apply_meal_references(food, references)
+        self.assertEqual(result.loc[0, "description"], "reference lunch")
+        self.assertEqual(result.loc[0, "carbs_g"], 55)
+        self.assertEqual(result.loc[0, "gi_class"], "medium")
 
 
 if __name__ == "__main__":

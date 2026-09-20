@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .eda import write_eda
 from .evaluation import write_forward_evaluation
 from .io import load_csv_exports
 from .policy import PolicyConfig, write_policy_evaluation
@@ -56,18 +57,33 @@ def run_pipeline(
     }
     if validation_errors:
         manifest["status"] = "validation_failed"
+        stages["exploratory_analysis"] = {"status": "not_run"}
         stages["forward_model"] = {"status": "not_run"}
         stages["policy_experiment"] = {"status": "not_run"}
         _write_manifest(destination, manifest)
         return manifest
 
-    forward_result, _ = write_forward_evaluation(tables, destination / "02_forward_model")
+    eda_result, _ = write_eda(tables, destination / "02_exploratory_analysis")
     artifacts.extend(
         [
-            "02_forward_model/forward_report.md",
-            "02_forward_model/forward_metrics.json",
-            "02_forward_model/forward_predictions.csv",
-            "02_forward_model/predicted_vs_actual.png",
+            "02_exploratory_analysis/eda_report.md",
+            "02_exploratory_analysis/eda_summary.json",
+            "02_exploratory_analysis/meal_response.png",
+        ]
+    )
+    stages["exploratory_analysis"] = {
+        "status": "complete",
+        "clean_episodes": eda_result["clean_episode_rows"],
+    }
+
+    forward_result, _ = write_forward_evaluation(tables, destination / "03_forward_model")
+    artifacts.extend(
+        [
+            "03_forward_model/forward_report.md",
+            "03_forward_model/forward_metrics.json",
+            "03_forward_model/forward_predictions.csv",
+            "03_forward_model/predicted_vs_actual.png",
+            "03_forward_model/residual_diagnostics.png",
         ]
     )
     gate = forward_result["gate"]
@@ -90,14 +106,14 @@ def run_pipeline(
     policy_result, _ = write_policy_evaluation(
         tables,
         forward_result,
-        destination / "03_policy_experiment",
+        destination / "04_policy_experiment",
         config=policy_config,
     )
     artifacts.extend(
         [
-            "03_policy_experiment/policy_report.md",
-            "03_policy_experiment/policy_metrics.json",
-            "03_policy_experiment/policy_candidates.csv",
+            "04_policy_experiment/policy_report.md",
+            "04_policy_experiment/policy_metrics.json",
+            "04_policy_experiment/policy_candidates.csv",
         ]
     )
     stages["policy_experiment"] = {

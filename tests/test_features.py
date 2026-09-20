@@ -24,6 +24,20 @@ class FeatureTests(unittest.TestCase):
         columns = ["iob_rapid_units", "cob_prior_g", "hour_sin", "hour_cos", "is_weekend"]
         self.assertTrue(baseline[columns].equals(changed[columns]))
 
+    def test_recent_context_is_summarized_without_future_events(self) -> None:
+        tables = generate_synthetic_dataset(days=8)
+        episodes = build_meal_episodes(tables["glucose"], tables["food"], tables["insulin"])
+        baseline = build_episode_features(
+            episodes,
+            tables["glucose"],
+            tables["food"],
+            tables["insulin"],
+            tables["context"],
+        )
+        self.assertIn("exercise_minutes_last_24h", baseline)
+        self.assertIn("hours_since_basal_dose", baseline)
+        self.assertTrue((baseline["exercise_minutes_last_24h"] >= 0).all())
+
 
 if __name__ == "__main__":
     unittest.main()

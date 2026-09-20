@@ -23,8 +23,15 @@ NUMERIC_FEATURES = [
     "hour_cos",
     "is_weekend",
     "prior_glucose_slope_mg_dl_h",
+    "protein_g",
+    "fat_g",
+    "correction_units_last_4h",
+    "minutes_since_rapid_dose",
+    "hours_since_basal_dose",
+    "hypo_events_last_24h",
+    "exercise_minutes_last_24h",
 ]
-CATEGORICAL_FEATURES = ["meal_type"]
+CATEGORICAL_FEATURES = ["meal_type", "gi_class"]
 MODEL_FEATURES = [*NUMERIC_FEATURES, *CATEGORICAL_FEATURES]
 
 
