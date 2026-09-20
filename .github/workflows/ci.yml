@@ -24,3 +24,5 @@ jobs:
       - run: irp build-episodes --input data/synthetic --output data/interim/episodes.csv
       - run: irp assess --input data/synthetic --output reports/generated/synthetic
       - run: irp evaluate-forward --input data/synthetic --output reports/generated/forward
+      - run: irp run-demo --output /tmp/irp-demo --days 45
+      - run: docker build -t insulin-response-predictor .

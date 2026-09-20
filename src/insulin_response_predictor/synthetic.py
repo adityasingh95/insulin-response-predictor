@@ -8,10 +8,16 @@ from pathlib import Path
 
 import pandas as pd
 
+SYNTHETIC_SCENARIOS = {"routine", "identifiable", "noisy"}
 
-def generate_synthetic_dataset(days: int = 21, seed: int = 42) -> dict[str, pd.DataFrame]:
+
+def generate_synthetic_dataset(
+    days: int = 21, seed: int = 42, scenario: str = "routine"
+) -> dict[str, pd.DataFrame]:
     if days <= 0:
         raise ValueError("days must be positive")
+    if scenario not in SYNTHETIC_SCENARIOS:
+        raise ValueError(f"scenario must be one of {sorted(SYNTHETIC_SCENARIOS)}")
     rng = random.Random(seed)
     start = datetime(2026, 1, 1, tzinfo=UTC)
     glucose_rows: list[dict[str, object]] = []
@@ -37,11 +43,26 @@ def generate_synthetic_dataset(days: int = 21, seed: int = 42) -> dict[str, pd.D
 
         for meal_number, (hour, meal_type, base_carbs) in enumerate(meal_specs):
             meal_time = date.replace(hour=hour, minute=rng.choice([0, 5, 10]))
-            pre_glucose = max(55, min(280, 120 + rng.gauss(0, 22)))
-            carbs = max(15, round(base_carbs + rng.gauss(0, 10)))
+            pre_spread = 32 if scenario == "identifiable" else 22
+            carb_spread = 16 if scenario == "identifiable" else 10
+            pre_glucose = max(55, min(280, 120 + rng.gauss(0, pre_spread)))
+            carbs = max(15, round(base_carbs + rng.gauss(0, carb_spread)))
             icr = {"breakfast": 8, "lunch": 10, "dinner": 9}[meal_type]
-            dose = max(0.5, round((carbs / icr + (pre_glucose - 120) / 40) * 2) / 2)
-            outcome = pre_glucose + 0.9 * carbs - 8.0 * dose + rng.gauss(0, 18)
+            formula_dose = carbs / icr + (pre_glucose - 120) / 40
+            if scenario == "identifiable":
+                dose = max(0.5, round((formula_dose + rng.gauss(0, 1.5)) * 2) / 2)
+                meal_effect = {"breakfast": 8.0, "lunch": 0.0, "dinner": 4.0}[meal_type]
+                outcome = (
+                    pre_glucose
+                    + 1.25 * carbs
+                    - 12.0 * dose
+                    + meal_effect
+                    + rng.gauss(0, 7)
+                )
+            else:
+                dose = max(0.5, round(formula_dose * 2) / 2)
+                noise = 35 if scenario == "noisy" else 18
+                outcome = pre_glucose + 0.9 * carbs - 8.0 * dose + rng.gauss(0, noise)
 
             pre_lead_minutes = rng.randint(5, 25)
             pre_time = meal_time - timedelta(minutes=pre_lead_minutes)
@@ -133,8 +154,15 @@ def generate_synthetic_dataset(days: int = 21, seed: int = 42) -> dict[str, pd.D
     }
 
 
-def write_synthetic_dataset(destination: str | Path, days: int = 21, seed: int = 42) -> None:
+def write_synthetic_dataset(
+    destination: str | Path,
+    days: int = 21,
+    seed: int = 42,
+    scenario: str = "routine",
+) -> None:
     destination = Path(destination)
     destination.mkdir(parents=True, exist_ok=True)
-    for name, frame in generate_synthetic_dataset(days=days, seed=seed).items():
+    for name, frame in generate_synthetic_dataset(
+        days=days, seed=seed, scenario=scenario
+    ).items():
         frame.to_csv(destination / f"{name}.csv", index=False)

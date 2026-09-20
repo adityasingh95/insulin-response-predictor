@@ -6,9 +6,11 @@ import argparse
 import json
 from pathlib import Path
 
+from .configuration import load_policy_config
 from .episodes import build_meal_episodes
 from .evaluation import write_forward_evaluation
 from .io import load_csv_exports, write_blank_templates
+from .pipeline import run_demo, run_pipeline
 from .reporting import write_assessment
 from .synthetic import write_synthetic_dataset
 from .validation import validate_dataset
@@ -25,7 +27,9 @@ def _templates(args: argparse.Namespace) -> int:
 
 
 def _synthetic(args: argparse.Namespace) -> int:
-    write_synthetic_dataset(args.output, days=args.days, seed=args.seed)
+    write_synthetic_dataset(
+        args.output, days=args.days, seed=args.seed, scenario=args.scenario
+    )
     print(f"Wrote fictional development data to {args.output}")
     return 0
 
@@ -66,6 +70,27 @@ def _evaluate_forward(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_pipeline(args: argparse.Namespace) -> int:
+    policy_config = load_policy_config(args.subject_config)
+    manifest = run_pipeline(
+        _load_tables(Path(args.input)),
+        args.output,
+        policy_config=policy_config,
+    )
+    print(json.dumps(manifest, indent=2, default=str))
+    return 1 if manifest["status"] == "validation_failed" else 0
+
+
+def _run_demo(args: argparse.Namespace) -> int:
+    result = run_demo(args.output, days=args.days, seed=args.seed)
+    print(json.dumps(result, indent=2, default=str))
+    statuses = {
+        name: manifest["status"] for name, manifest in result["scenarios"].items()
+    }
+    expected = result["expected"]
+    return 0 if statuses == expected else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="irp")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -74,6 +99,9 @@ def build_parser() -> argparse.ArgumentParser:
     synthetic.add_argument("--output", default="data/synthetic")
     synthetic.add_argument("--days", type=int, default=21)
     synthetic.add_argument("--seed", type=int, default=42)
+    synthetic.add_argument(
+        "--scenario", choices=["routine", "identifiable", "noisy"], default="routine"
+    )
     synthetic.set_defaults(func=_synthetic)
 
     templates = subparsers.add_parser("create-templates")
@@ -98,6 +126,18 @@ def build_parser() -> argparse.ArgumentParser:
     forward.add_argument("--input", required=True)
     forward.add_argument("--output", default="reports/generated/forward")
     forward.set_defaults(func=_evaluate_forward)
+
+    pipeline = subparsers.add_parser("run-pipeline")
+    pipeline.add_argument("--input", required=True)
+    pipeline.add_argument("--output", default="reports/generated/pipeline")
+    pipeline.add_argument("--subject-config", required=True)
+    pipeline.set_defaults(func=_run_pipeline)
+
+    demo = subparsers.add_parser("run-demo")
+    demo.add_argument("--output", default="demo-output")
+    demo.add_argument("--days", type=int, default=90)
+    demo.add_argument("--seed", type=int, default=42)
+    demo.set_defaults(func=_run_demo)
     return parser
 
 

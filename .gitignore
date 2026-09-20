@@ -13,6 +13,7 @@ data/interim/**
 data/processed/**
 artifacts/**
 reports/generated/**
+demo-output/**
 config/subject.yaml
 *.sqlite
 *.db

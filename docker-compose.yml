@@ -1,0 +1,6 @@
+services:
+  demo:
+    build: .
+    command: ["run-demo", "--output", "/output", "--days", "90"]
+    volumes:
+      - ./demo-output:/output
