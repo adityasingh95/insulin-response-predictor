@@ -13,8 +13,9 @@ this layer fails.
 - **Histogram gradient boosting:** a conservative nonlinear tabular benchmark.
 - **Random Forest:** a second nonlinear sanity check with restricted depth and leaf size.
 
-All learned models use the same feature table and the same chronological split. No random
-train/test split is available.
+All learned models use the same feature table and chronological split. An additional
+expanding-window rolling-origin evaluation tests whether performance persists across later
+time blocks. No random train/test split is available.
 
 ## Metrics
 
@@ -22,6 +23,8 @@ train/test split is available.
 - Skill versus persistence: `1 - RMSE(model) / RMSE(persistence)`
 - Directional accuracy relative to the pre-meal glucose
 - Finite-difference dose sensitivity in mg/dL per unit
+- Episode-level 95% bootstrap intervals for held-out metrics
+- Mean and standard deviation across rolling-origin folds
 
 ## Dose-sensitivity gate
 

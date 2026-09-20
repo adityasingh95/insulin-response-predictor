@@ -149,6 +149,20 @@ def _predict_candidate(model: object, row: pd.Series, dose: float) -> float:
     return float(model.predict(candidate)[0])
 
 
+def _imitation_candidate(
+    imitation_model: object,
+    row: pd.Series,
+    support: dict[str, float],
+    config: PolicyConfig,
+) -> float:
+    candidate = row[MODEL_FEATURES].to_frame().T.copy()
+    candidate["bolus_units"] = 0.0
+    historical_style_dose = float(imitation_model.predict(candidate)[0])
+    return _constrain_dose(
+        max(0.0, historical_style_dose), support, config.dose_increment_units
+    )
+
+
 def _inverted_candidate(
     model: object,
     row: pd.Series,
@@ -239,7 +253,11 @@ def evaluate_retrospective_policies(
 
     episodes = build_meal_episodes(tables["glucose"], tables["food"], tables["insulin"])
     features = build_episode_features(
-        episodes, tables["glucose"], tables["food"], tables["insulin"]
+        episodes,
+        tables["glucose"],
+        tables["food"],
+        tables["insulin"],
+        tables.get("context"),
     )
     train, test = chronological_split(features)
     gate_by_model = gate["by_model"]
@@ -250,12 +268,21 @@ def evaluate_retrospective_policies(
     selected_name = min(passing, key=lambda name: metrics[name]["rmse_mg_dl"])
     selected_model = build_models()[selected_name]
     selected_model.fit(train[MODEL_FEATURES], train[TARGET_COLUMN])
+    imitation_model = build_models()["ridge"]
+    imitation_features = train[MODEL_FEATURES].copy()
+    imitation_features["bolus_units"] = 0.0
+    imitation_model.fit(imitation_features, train["bolus_units"])
     fitted = fit_formula_parameters(train, config)
 
     evaluated = test.copy()
     evaluated["historical_dose_min_units"] = np.nan
     evaluated["historical_dose_max_units"] = np.nan
-    policy_names = ["standard_formula", "fitted_formula", "model_inversion"]
+    policy_names = [
+        "standard_formula",
+        "fitted_formula",
+        "historical_imitation",
+        "model_inversion",
+    ]
     for name in policy_names:
         evaluated[f"{name}_candidate_units"] = np.nan
         evaluated[f"{name}_predicted_glucose_mg_dl"] = np.nan
@@ -288,9 +315,11 @@ def evaluate_retrospective_policies(
         inverted, inverted_prediction = _inverted_candidate(
             selected_model, row, support, config
         )
+        imitation = _imitation_candidate(imitation_model, row, support, config)
         for name, dose in (
             ("standard_formula", standard),
             ("fitted_formula", fitted_formula),
+            ("historical_imitation", imitation),
             ("model_inversion", inverted),
         ):
             evaluated.at[index, f"{name}_candidate_units"] = dose
@@ -312,6 +341,8 @@ def evaluate_retrospective_policies(
             "Simulated time in range is optimistic because the selected forward model "
             "scores its own policy.",
             "Candidate doses are clamped to meal-specific historical support.",
+            "The imitation policy reproduces recorded dosing patterns; it does not infer an "
+            "optimal or clinically appropriate dose.",
             "This output is not a treatment instruction.",
         ],
     }

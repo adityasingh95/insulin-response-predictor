@@ -1,1 +1,1 @@
-subject_id,timestamp,description,carbs_g,meal_type,gi_class,is_hypo_treatment,protein_g,fat_g,recorded_at,estimate_confidence,notes
+subject_id,timestamp,description,carbs_g,meal_type,gi_class,is_hypo_treatment,meal_reference_id,protein_g,fat_g,recorded_at,estimate_confidence,notes

@@ -24,7 +24,7 @@ This scenario contains a deliberately observable dose effect and moderate noise.
 
 1. Pass schema validation and episode construction.
 2. Pass at least one forward model through the skill and dose-sensitivity gate.
-3. Run all three retrospective policy experiments.
+3. Run all four retrospective policy experiments.
 4. Produce a policy safety audit and a `complete` manifest.
 
 It exists only to exercise the software. Its metrics have no clinical meaning.
@@ -50,17 +50,19 @@ demo-output/
 │   └── output/
 │       ├── pipeline_manifest.json
 │       ├── 01_data_quality/
-│       ├── 02_forward_model/
-│       └── 03_policy_experiment/
+│       ├── 02_exploratory_analysis/
+│       ├── 03_forward_model/
+│       └── 04_policy_experiment/
 └── noisy/
     ├── input/
     └── output/
         ├── pipeline_manifest.json
         ├── 01_data_quality/
-        └── 02_forward_model/
+        ├── 02_exploratory_analysis/
+        └── 03_forward_model/
 ```
 
-The noisy output intentionally contains no `03_policy_experiment` directory.
+The noisy output intentionally contains no `04_policy_experiment` directory.
 
 ## Running a later CSV export
 

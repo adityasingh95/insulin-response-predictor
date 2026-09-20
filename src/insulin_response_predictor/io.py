@@ -68,7 +68,38 @@ def load_csv_exports(directory: str | Path) -> dict[str, pd.DataFrame]:
         path = directory / f"{name}.csv"
         if path.exists():
             tables[name] = normalize_export(pd.read_csv(path, encoding="utf-8-sig"))
+    reference_path = directory / "meal_references.csv"
+    if reference_path.exists() and "food" in tables:
+        references = normalize_export(pd.read_csv(reference_path, encoding="utf-8-sig"))
+        tables["food"] = apply_meal_references(tables["food"], references)
     return tables
+
+
+def apply_meal_references(food: pd.DataFrame, references: pd.DataFrame) -> pd.DataFrame:
+    """Fill blank food details from a user-maintained repeated-meal lookup."""
+    required = {"meal_reference_id", "description", "carbs_g", "gi_class"}
+    missing = required - set(references.columns)
+    if missing:
+        raise ValueError(f"meal_references.csv is missing columns: {sorted(missing)}")
+    if references["meal_reference_id"].duplicated().any():
+        raise ValueError("meal_reference_id values must be unique")
+    if "meal_reference_id" not in food:
+        return food
+    details = ["description", "carbs_g", "gi_class", "protein_g", "fat_g"]
+    available = [column for column in details if column in references]
+    lookup = references[["meal_reference_id", *available]].rename(
+        columns={column: f"{column}_reference" for column in available}
+    )
+    result = food.merge(lookup, on="meal_reference_id", how="left", validate="many_to_one")
+    for column in available:
+        reference_column = f"{column}_reference"
+        if column not in result:
+            result[column] = result[reference_column]
+        else:
+            blank = result[column].isna() | result[column].astype(str).str.strip().eq("")
+            result.loc[blank, column] = result.loc[blank, reference_column]
+        result = result.drop(columns=reference_column)
+    return result
 
 
 def write_blank_templates(directory: str | Path) -> list[Path]:

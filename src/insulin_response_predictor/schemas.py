@@ -44,7 +44,14 @@ SCHEMAS: dict[str, TableSchema] = {
             "gi_class",
             "is_hypo_treatment",
         ),
-        optional=("protein_g", "fat_g", "recorded_at", "estimate_confidence", "notes"),
+        optional=(
+            "meal_reference_id",
+            "protein_g",
+            "fat_g",
+            "recorded_at",
+            "estimate_confidence",
+            "notes",
+        ),
     ),
     "insulin": TableSchema(
         required=(

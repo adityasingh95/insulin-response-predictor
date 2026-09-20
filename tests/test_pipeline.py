@@ -32,15 +32,25 @@ class PipelineTests(unittest.TestCase):
                     root
                     / "identifiable"
                     / "output"
-                    / "03_policy_experiment"
+                    / "04_policy_experiment"
                     / "policy_metrics.json"
                 ).exists()
             )
             self.assertFalse(
-                (root / "noisy" / "output" / "03_policy_experiment").exists()
+                (root / "noisy" / "output" / "04_policy_experiment").exists()
             )
-            policy_root = root / "identifiable" / "output" / "03_policy_experiment"
+            policy_root = root / "identifiable" / "output" / "04_policy_experiment"
             metrics = json.loads((policy_root / "policy_metrics.json").read_text())
+            self.assertIn("historical_imitation", metrics["policies"])
+            self.assertTrue(
+                (
+                    root
+                    / "identifiable"
+                    / "output"
+                    / "02_exploratory_analysis"
+                    / "eda_report.md"
+                ).exists()
+            )
             for values in metrics["policies"].values():
                 self.assertEqual(values["outside_historical_support_count"], 0)
             candidates = pd.read_csv(policy_root / "policy_candidates.csv")

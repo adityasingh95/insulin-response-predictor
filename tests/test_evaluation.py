@@ -51,6 +51,8 @@ class EvaluationTests(unittest.TestCase):
         result, predictions = evaluate_forward_models(tables)
         self.assertGreater(result["dataset"]["train_rows"], result["dataset"]["test_rows"])
         self.assertIn("ridge", result["metrics"])
+        self.assertIn("ridge", result["metric_95_percent_intervals"])
+        self.assertGreater(result["rolling_origin"]["fold_count"], 0)
         self.assertIn("any_model_passes", result["gate"])
         self.assertGreater(len(predictions), 5)
 
@@ -62,6 +64,7 @@ class EvaluationTests(unittest.TestCase):
             self.assertTrue((destination / "forward_report.md").exists())
             self.assertTrue((destination / "forward_predictions.csv").exists())
             self.assertTrue((destination / "predicted_vs_actual.png").exists())
+            self.assertTrue((destination / "residual_diagnostics.png").exists())
 
 
 if __name__ == "__main__":

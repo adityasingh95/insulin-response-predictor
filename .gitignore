@@ -14,6 +14,7 @@ data/processed/**
 artifacts/**
 reports/generated/**
 demo-output/**
+notebook-output/**
 config/subject.yaml
 *.sqlite
 *.db

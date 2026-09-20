@@ -163,6 +163,10 @@ def build_meal_episodes(
                 ).total_seconds()
                 / 60,
                 "carbs_g": float(meal["carbs_g"]),
+                "protein_g": _optional_number(meal, "protein_g"),
+                "fat_g": _optional_number(meal, "fat_g"),
+                "gi_class": meal.get("gi_class", "unknown"),
+                "meal_reference_id": meal.get("meal_reference_id", pd.NA),
                 "meal_type": meal["meal_type"],
                 "bolus_units": float(bolus["units"]),
                 "status": status,
@@ -171,3 +175,8 @@ def build_meal_episodes(
         )
 
     return pd.DataFrame.from_records(records)
+
+
+def _optional_number(row: pd.Series, column: str) -> float:
+    value = row.get(column, 0.0)
+    return 0.0 if pd.isna(value) else float(value)
