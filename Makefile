@@ -1,4 +1,4 @@
-.PHONY: install test lint synthetic validate episodes
+.PHONY: install test lint synthetic validate episodes assess templates
 
 install:
 	python -m pip install -e '.[dev]'
@@ -17,3 +17,9 @@ validate:
 
 episodes:
 	irp build-episodes --input data/synthetic --output data/interim/episodes.csv
+
+assess:
+	irp assess --input data/synthetic --output reports/generated/synthetic
+
+templates:
+	irp create-templates --output templates

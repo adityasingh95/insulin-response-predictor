@@ -17,6 +17,8 @@ creates leakage-resistant physiology features.
 - Explicit detection of intervening food, hypo treatment, and rapid insulin
 - Configurable rapid insulin-on-board and carbohydrate-on-board curves
 - Leakage-resistant episode features
+- Google Sheets/CSV export templates and normalized column loading
+- Local Markdown/JSON quality reports and a three-panel event timeline
 
 Forward models and retrospective dose-policy experiments will be added only after the data
 foundation is verified. No personal data is required to run this milestone.
@@ -35,6 +37,7 @@ Generate fictional development data:
 irp generate-synthetic --output data/synthetic --days 21
 irp validate --input data/synthetic
 irp build-episodes --input data/synthetic --output data/interim/episodes.csv
+irp assess --input data/synthetic --output reports/generated/synthetic
 ```
 
 Run tests:
@@ -67,6 +70,15 @@ Place local CSVs in one directory using these names:
 
 Field definitions live in `src/insulin_response_predictor/schemas.py`. Copy
 `config/subject.example.yaml` to the ignored `config/subject.yaml` for local configuration.
+Blank importable templates live in `templates/`; they can also be regenerated with:
+
+```bash
+irp create-templates --output templates
+```
+
+See `docs/data-entry-guide.md` for Google Sheets tab names, allowed values, timestamp rules,
+and the export workflow. The entry mechanism can change later without changing this CSV
+contract.
 
 ## Episode status
 

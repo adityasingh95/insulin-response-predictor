@@ -6,6 +6,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from .io import coerce_boolean
+
 
 @dataclass(frozen=True)
 class EpisodeConfig:
@@ -40,8 +42,9 @@ def build_meal_episodes(
     insulin = _as_time(insulin)
 
     records: list[dict[str, object]] = []
+    hypo_flags = food["is_hypo_treatment"].map(coerce_boolean).map(lambda value: value is True)
     meals = food.loc[
-        ~food["is_hypo_treatment"].astype(bool)
+        ~hypo_flags.astype(bool)
         & food["meal_type"].isin(["breakfast", "lunch", "dinner"])
     ]
 
@@ -129,10 +132,14 @@ def build_meal_episodes(
         ]
         reasons: list[str] = []
         if not intervening_food.empty:
+            has_hypo_treatment = (
+                intervening_food["is_hypo_treatment"]
+                .map(coerce_boolean)
+                .map(lambda value: value is True)
+                .any()
+            )
             reasons.append(
-                "hypo_treatment"
-                if intervening_food["is_hypo_treatment"].astype(bool).any()
-                else "intervening_food"
+                "hypo_treatment" if has_hypo_treatment else "intervening_food"
             )
         if not intervening_insulin.empty:
             reasons.append("intervening_insulin")

@@ -6,20 +6,21 @@ import argparse
 import json
 from pathlib import Path
 
-import pandas as pd
-
 from .episodes import build_meal_episodes
+from .io import load_csv_exports, write_blank_templates
+from .reporting import write_assessment
 from .synthetic import write_synthetic_dataset
 from .validation import validate_dataset
 
 
-def _load_tables(directory: Path) -> dict[str, pd.DataFrame]:
-    tables: dict[str, pd.DataFrame] = {}
-    for name in ("glucose", "food", "insulin", "context"):
-        path = directory / f"{name}.csv"
-        if path.exists():
-            tables[name] = pd.read_csv(path)
-    return tables
+def _load_tables(directory: Path):
+    return load_csv_exports(directory)
+
+
+def _templates(args: argparse.Namespace) -> int:
+    written = write_blank_templates(args.output)
+    print(json.dumps({"written": [str(path) for path in written]}, indent=2))
+    return 0
 
 
 def _synthetic(args: argparse.Namespace) -> int:
@@ -46,6 +47,12 @@ def _episodes(args: argparse.Namespace) -> int:
     return 0
 
 
+def _assess(args: argparse.Namespace) -> int:
+    summary, issues, _ = write_assessment(_load_tables(Path(args.input)), args.output)
+    print(json.dumps({"output": args.output, "summary": summary}, indent=2, default=str))
+    return 1 if any(issue.severity == "error" for issue in issues) else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="irp")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -56,6 +63,10 @@ def build_parser() -> argparse.ArgumentParser:
     synthetic.add_argument("--seed", type=int, default=42)
     synthetic.set_defaults(func=_synthetic)
 
+    templates = subparsers.add_parser("create-templates")
+    templates.add_argument("--output", default="templates")
+    templates.set_defaults(func=_templates)
+
     validate = subparsers.add_parser("validate")
     validate.add_argument("--input", required=True)
     validate.set_defaults(func=_validate)
@@ -64,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
     episodes.add_argument("--input", required=True)
     episodes.add_argument("--output", default="data/interim/episodes.csv")
     episodes.set_defaults(func=_episodes)
+
+    assess = subparsers.add_parser("assess")
+    assess.add_argument("--input", required=True)
+    assess.add_argument("--output", default="reports/generated")
+    assess.set_defaults(func=_assess)
     return parser
 
 

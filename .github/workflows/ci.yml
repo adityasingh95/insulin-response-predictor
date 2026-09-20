@@ -22,3 +22,4 @@ jobs:
       - run: irp generate-synthetic --output data/synthetic --days 7
       - run: irp validate --input data/synthetic
       - run: irp build-episodes --input data/synthetic --output data/interim/episodes.csv
+      - run: irp assess --input data/synthetic --output reports/generated/synthetic
