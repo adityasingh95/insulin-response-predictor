@@ -1,4 +1,4 @@
-.PHONY: install test lint synthetic validate episodes assess templates
+.PHONY: install test lint synthetic validate episodes assess templates forward
 
 install:
 	python -m pip install -e '.[dev]'
@@ -23,3 +23,6 @@ assess:
 
 templates:
 	irp create-templates --output templates
+
+forward:
+	irp evaluate-forward --input data/synthetic --output reports/generated/forward

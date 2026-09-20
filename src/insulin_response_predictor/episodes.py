@@ -77,7 +77,8 @@ def build_meal_episodes(
             continue
 
         bolus = rapid.sort_values(["distance", "timestamp"]).iloc[0]
-        anchor_time = min(meal_time, bolus["timestamp"])
+        # The modelling horizon is defined from the rapid bolus, not from the meal.
+        anchor_time = bolus["timestamp"]
 
         prior = subject_glucose.loc[
             (subject_glucose["timestamp"] <= anchor_time)
