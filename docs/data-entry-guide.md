@@ -60,6 +60,76 @@ known. The two fields should sum to `units`.
 Use the optional context tab for `exercise`, `illness`, `stress`, `poor_sleep`, `alcohol`, or
 `other`. Exercise should include `duration_minutes` and a consistent intensity description.
 
+## Quick-start example
+
+A coherent fictional day of data across all four tabs, ready to copy in as a formatting
+reference. Replace every value before using it for real logging.
+
+`glucose.csv`:
+
+```csv
+subject_id,timestamp,glucose_mg_dl,source,context,recorded_at,notes
+SUBJ-001,2026-09-20T07:45:00+05:30,128,cgm,pre_meal,,
+SUBJ-001,2026-09-20T09:53:00+05:30,142,cgm,post_meal,,
+SUBJ-001,2026-09-20T13:00:00+05:30,131,cgm,pre_meal,,
+SUBJ-001,2026-09-20T15:10:00+05:30,135,cgm,post_meal,,
+SUBJ-001,2026-09-20T16:00:00+05:30,62,fingerstick,symptomatic,,felt shaky
+```
+
+`food.csv`:
+
+```csv
+subject_id,timestamp,description,carbs_g,meal_type,gi_class,is_hypo_treatment,meal_reference_id,protein_g,fat_g,recorded_at,estimate_confidence,notes
+SUBJ-001,2026-09-20T07:50:00+05:30,Oatmeal with banana,45,breakfast,medium,false,breakfast-oatmeal,8,5,,high,
+SUBJ-001,2026-09-20T13:02:00+05:30,Chicken salad wrap,38,lunch,low,false,,25,12,,medium,
+SUBJ-001,2026-09-20T16:02:00+05:30,Glucose tablets x4,15,hypo_treatment,high,true,,0,0,,high,treated low
+```
+
+`insulin.csv`:
+
+```csv
+subject_id,timestamp,units,insulin_type,product,dose_reason,meal_units,correction_units,injection_site,recorded_at,notes
+SUBJ-001,2026-09-20T07:52:00+05:30,4.5,rapid,Humalog,meal_bolus,,,abdomen,,
+SUBJ-001,2026-09-20T13:05:00+05:30,4.0,rapid,Humalog,meal_bolus,,,thigh,,
+SUBJ-001,2026-09-20T20:00:00+05:30,12,long,Lantus,basal,,,abdomen,,evening basal
+```
+
+`context.csv` (optional):
+
+```csv
+subject_id,timestamp,event_type,duration_minutes,intensity,recorded_at,notes
+SUBJ-001,2026-09-20T06:30:00+05:30,exercise,30,moderate,,morning jog
+```
+
+`meal_references.csv` (optional, local only):
+
+```csv
+meal_reference_id,description,carbs_g,gi_class,protein_g,fat_g
+breakfast-oatmeal,Oatmeal with banana,45,medium,8,5
+```
+
+## Data-collection checklist
+
+For whoever is logging events day-to-day:
+
+- Log glucose, meals, and doses as they happen - one row per event, not batched at the end
+  of the day.
+- Always include the UTC offset on every timestamp (see the timestamp rule above).
+- Use `mg/dL` consistently for glucose; do not mix in `mmol/L` values.
+- Log the bolus separately from the meal, even if they happen almost together.
+- Give every hypo treatment both `meal_type=hypo_treatment` and `is_hypo_treatment=true`;
+  give every regular meal `is_hypo_treatment=false`.
+- When a single injection covers a meal and a correction, use `dose_reason=combined` and
+  fill `meal_units`/`correction_units` so they sum to `units`; otherwise use `meal_bolus`
+  or `correction` alone.
+- Log context events (exercise, illness, stress, poor sleep, alcohol) the same day so the
+  pipeline can account for them.
+- Keep one `subject_id` for the whole dataset and never put a real name, email, or
+  medical-record number anywhere in the sheet.
+- Export and run `irp validate --input data/raw/latest` regularly rather than discovering
+  problems after months of logging; fix mistakes in the source spreadsheet, never in the
+  generated CSV or report.
+
 ## Export workflow
 
 1. Export each Google Sheets tab as CSV.
